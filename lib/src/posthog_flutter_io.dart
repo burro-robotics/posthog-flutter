@@ -499,6 +499,19 @@ class PosthogFlutterIO extends PosthogFlutterPlatformInterface {
     }
   }
 
+  @override
+  Future<void> createNewSession() async {
+    if (!isSupportedPlatform()) {
+      return;
+    }
+
+    try {
+      await _methodChannel.invokeMethod('createNewSession');
+    } on PlatformException catch (exception) {
+      printIfDebug('Exception on createNewSession: $exception');
+    }
+  }
+
   // For internal use
   @override
   Future<void> openUrl(String url) async {

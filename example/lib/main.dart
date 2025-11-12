@@ -4,574 +4,319 @@ import 'package:flutter/material.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 
 Future<void> main() async {
-  // // init WidgetsFlutterBinding if not yet
-
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Use a test API key - user should replace with their own
   final config =
-      PostHogConfig('phc_QFbR1y41s5sxnNTZoyKG2NJo2RlsCIWkUfdpawgb40D');
+      PostHogConfig('<YOUR_KEY_HERE>');
   config.debug = true;
   config.captureApplicationLifecycleEvents = false;
   config.host = 'https://us.i.posthog.com';
-  config.surveys = true;
-  config.sessionReplay = true;
-  config.sessionReplayConfig.maskAllTexts = false;
-  config.sessionReplayConfig.maskAllImages = false;
-  config.sessionReplayConfig.throttleDelay = const Duration(milliseconds: 1000);
-  config.flushAt = 1;
-
-  // Configure error tracking and exception capture
-  config.errorTrackingConfig.captureFlutterErrors =
-      true; // Capture Flutter framework errors
-  config.errorTrackingConfig.capturePlatformDispatcherErrors =
-      true; // Capture Dart runtime errors
-  config.errorTrackingConfig.captureIsolateErrors =
-      true; // Capture isolate errors
+  config.flushAt = 1; // Flush immediately for testing
 
   await Posthog().setup(config);
 
-  runApp(const MyApp());
+  runApp(const TestApp());
 }
 
-class MyApp extends StatefulWidget {
-  const MyApp({super.key});
-
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  @override
-  void initState() {
-    super.initState();
-  }
+class TestApp extends StatelessWidget {
+  const TestApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return PostHogWidget(
-      child: MaterialApp(
-        navigatorObservers: [PosthogObserver()],
-        title: 'Flutter App',
-        home: const InitialScreen(),
+    return MaterialApp(
+      navigatorObservers: [PosthogObserver()],
+      title: 'PostHog Linux Test',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        useMaterial3: true,
       ),
+      home: const TestHomePage(),
     );
   }
 }
 
-class InitialScreen extends StatefulWidget {
-  const InitialScreen({Key? key}) : super(key: key);
+class TestHomePage extends StatefulWidget {
+  const TestHomePage({super.key});
 
   @override
-  InitialScreenState createState() => InitialScreenState();
+  State<TestHomePage> createState() => _TestHomePageState();
 }
 
-class InitialScreenState extends State<InitialScreen> {
-  final _posthogFlutterPlugin = Posthog();
-  dynamic _result = "";
+class _TestHomePageState extends State<TestHomePage> {
+  final _posthog = Posthog();
+  String _statusMessage = 'Ready';
+  String _distinctId = '';
 
   @override
   void initState() {
     super.initState();
+    _loadDistinctId();
+  }
+
+  Future<void> _loadDistinctId() async {
+    final id = await _posthog.getDistinctId();
+    setState(() {
+      _distinctId = id;
+    });
+  }
+
+  Future<void> _captureEvent(
+      String eventName, Map<String, dynamic>? properties) async {
+    try {
+      await _posthog.capture(
+        eventName: eventName,
+        properties: properties?.cast<String, Object>(),
+      );
+      setState(() {
+        _statusMessage = 'Event "$eventName" captured successfully!';
+      });
+    } catch (e) {
+      setState(() {
+        _statusMessage = 'Error: $e';
+      });
+    }
+  }
+
+  Future<void> _testIdentify() async {
+    try {
+      await _posthog.identify(
+        userId: 'test_user_${DateTime.now().millisecondsSinceEpoch}',
+        userProperties: {
+          'name': 'Test User',
+          'platform': 'Linux',
+        } as Map<String, Object>,
+      );
+      await _loadDistinctId();
+      setState(() {
+        _statusMessage = 'User identified successfully!';
+      });
+    } catch (e) {
+      setState(() {
+        _statusMessage = 'Error: $e';
+      });
+    }
+  }
+
+  Future<void> _testScreen() async {
+    try {
+      await _posthog.screen(
+        screenName: 'test_screen',
+        properties: {
+          'screen_type': 'test',
+        } as Map<String, Object>,
+      );
+      setState(() {
+        _statusMessage = 'Screen tracked successfully!';
+      });
+    } catch (e) {
+      setState(() {
+        _statusMessage = 'Error: $e';
+      });
+    }
+  }
+
+  Future<void> _testFlush() async {
+    try {
+      await _posthog.flush();
+      setState(() {
+        _statusMessage = 'Events flushed!';
+      });
+    } catch (e) {
+      setState(() {
+        _statusMessage = 'Error: $e';
+      });
+    }
+  }
+
+  Future<void> _testFeatureFlag() async {
+    try {
+      final enabled = await _posthog.isFeatureEnabled('test_flag');
+      setState(() {
+        _statusMessage = 'Feature flag test_flag: $enabled';
+      });
+    } catch (e) {
+      setState(() {
+        _statusMessage = 'Error: $e';
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('PostHog Flutter App'),
+        title: const Text('PostHog Linux Test App'),
+        backgroundColor: Colors.blue,
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Center(
-            child: Column(
+      body: Container(
+        width: 1024,
+        height: 600,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Status section
+            Card(
+              color: Colors.grey[100],
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Status',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(_statusMessage),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Distinct ID: $_distinctId',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Basic Events section
+            const Text(
+              'Basic Events',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const SecondRoute(),
-                          settings: const RouteSettings(name: 'second_route')),
-                    );
-                  },
-                  child: const PostHogMaskWidget(
-                    child: Text(
-                      'Go to Second Route',
-                    ),
-                  ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text(
-                    "Capture",
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () {
-                        _posthogFlutterPlugin
-                            .screen(screenName: "my screen", properties: {
-                          "foo": "bar",
-                        });
-                      },
-                      child: const Text("Capture Screen manually"),
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        _posthogFlutterPlugin
-                            .capture(eventName: "eventName", properties: {
-                          "foo": "bar",
-                        });
-                      },
-                      child: const Text("Capture Event"),
-                    ),
-                  ],
-                ),
-                const Divider(),
-                const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text(
-                    "Activity",
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Wrap(
-                  alignment: WrapAlignment.spaceEvenly,
-                  spacing: 8.0,
-                  runSpacing: 8.0,
-                  children: [
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                      ),
-                      onPressed: () {
-                        _posthogFlutterPlugin.disable();
-                      },
-                      child: const Text("Disable Capture"),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                      ),
-                      onPressed: () {
-                        _posthogFlutterPlugin.enable();
-                      },
-                      child: const Text("Enable Capture"),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                      ),
-                      onPressed: () async {
-                        final isOptedOut =
-                            await _posthogFlutterPlugin.isOptOut();
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Opted out: $isOptedOut'),
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      },
-                      child: const Text("Check Opt-Out Status"),
-                    ),
-                  ],
+                  onPressed: () => _captureEvent(
+                      'button_clicked',
+                      {
+                        'button_name': 'test_button',
+                        'timestamp': DateTime.now().toIso8601String(),
+                      } as Map<String, dynamic>),
+                  child: const Text('Capture Test Event'),
                 ),
                 ElevatedButton(
-                  onPressed: () async {
-                    await _posthogFlutterPlugin.register("foo", "bar");
-                  },
-                  child: const Text("Register"),
+                  onPressed: () => _captureEvent(
+                      'custom_event',
+                      {
+                        'property1': 'value1',
+                        'property2': 42,
+                        'property3': true,
+                      } as Map<String, dynamic>),
+                  child: const Text('Capture Custom Event'),
                 ),
                 ElevatedButton(
-                  onPressed: () async {
-                    await _posthogFlutterPlugin.unregister("foo");
-                  },
-                  child: const Text("Unregister"),
+                  onPressed: _testScreen,
+                  child: const Text('Track Screen'),
                 ),
                 ElevatedButton(
-                  onPressed: () async {
-                    await _posthogFlutterPlugin.group(
-                        groupType: "theType",
-                        groupKey: "theKey",
-                        groupProperties: {
-                          "foo": "bar",
-                        });
-                  },
-                  child: const Text("Group"),
+                  onPressed: _testIdentify,
+                  child: const Text('Identify User'),
                 ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Feature Flags section
+            const Text(
+              'Feature Flags',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
                 ElevatedButton(
-                  onPressed: () async {
-                    await _posthogFlutterPlugin
-                        .identify(userId: "myId", userProperties: {
-                      "foo": "bar",
-                    }, userPropertiesSetOnce: {
-                      "foo1": "bar1",
-                    });
-                  },
-                  child: const Text("Identify"),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    await _posthogFlutterPlugin.alias(alias: "myAlias");
-                  },
-                  child: const Text("Alias"),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    await _posthogFlutterPlugin.debug(true);
-                  },
-                  child: const Text("Debug"),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    await _posthogFlutterPlugin.reset();
-                  },
-                  child: const Text("Reset"),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    await _posthogFlutterPlugin.flush();
-                  },
-                  child: const Text("Flush"),
-                ),
-                ElevatedButton(
-                    onPressed: () async {
-                      final result =
-                          await _posthogFlutterPlugin.getDistinctId();
-                      setState(() {
-                        _result = result;
-                      });
-                    },
-                    child: const PostHogMaskWidget(
-                      child: Text("distinctId"),
-                    )),
-                const Divider(),
-                const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text(
-                    "Error Tracking - Manual",
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
+                  onPressed: _testFeatureFlag,
+                  child: const Text('Check Feature Flag'),
                 ),
                 ElevatedButton(
                   onPressed: () async {
                     try {
-                      // Simulate an exception in main isolate
-                      // throw 'a custom error string';
-                      // throw 333;
-                      throw CustomException(
-                        'This is a custom exception with additional context',
-                        code: 'DEMO_ERROR_001',
-                        additionalData: {
-                          'user_action': 'button_press',
-                          'timestamp': DateTime.now().millisecondsSinceEpoch,
-                          'feature_enabled': true,
-                        },
-                      );
-                    } catch (e, stack) {
-                      await Posthog().captureException(
-                        error: e,
-                        stackTrace: stack,
-                        properties: {
-                          'test_type': 'main_isolate_exception',
-                          'button_pressed': 'capture_exception_main',
-                          'exception_category': 'custom',
-                        },
-                      );
-
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                                'Main isolate exception captured successfully! Check PostHog.'),
-                            backgroundColor: Colors.green,
-                            duration: Duration(seconds: 3),
-                          ),
-                        );
-                      }
+                      await _posthog.reloadFeatureFlags();
+                      setState(() {
+                        _statusMessage = 'Feature flags reloaded!';
+                      });
+                    } catch (e) {
+                      setState(() {
+                        _statusMessage = 'Error: $e';
+                      });
                     }
                   },
-                  child: const Text("Capture Exception"),
+                  child: const Text('Reload Feature Flags'),
                 ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                  ),
-                  onPressed: () async {
-                    await Posthog().captureException(
-                      error: 'No Stack Trace Error',
-                      properties: {'test_type': 'no_stack_trace'},
-                    );
-                  },
-                  child: const Text("Capture Exception (Missing Stack)"),
-                ),
-                const Divider(),
-                const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text(
-                    "Error Tracking - Autocapture",
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content:
-                              Text('Flutter error triggered! Check PostHog.'),
-                          backgroundColor: Colors.red,
-                          duration: Duration(seconds: 3),
-                        ),
-                      );
-                    }
-
-                    // Test Flutter error handler by throwing in widget context
-                    throw const CustomException(
-                        'Test Flutter error for autocapture',
-                        code: 'FlutterErrorTest',
-                        additionalData: {'test_type': 'flutter_error'});
-                  },
-                  child: const Text("Test Flutter Error Handler"),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () {
-                    // Test PlatformDispatcher error handler with Future
-                    Future.delayed(Duration.zero, () {
-                      throw const CustomException(
-                          'Test PlatformDispatcher error for autocapture',
-                          code: 'PlatformDispatcherTest',
-                          additionalData: {
-                            'test_type': 'platform_dispatcher_error'
-                          });
-                    });
-
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                              'Dart runtime error triggered! Check PostHog.'),
-                          backgroundColor: Colors.blue,
-                          duration: Duration(seconds: 3),
-                        ),
-                      );
-                    }
-                  },
-                  child: const Text("Test Dart Error Handler"),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.purple,
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () {
-                    // Test isolate error listener by throwing in an async callback
-                    Timer(Duration.zero, () {
-                      throw const CustomException(
-                        'Isolate error for testing',
-                        code: 'IsolateHandlerTest',
-                        additionalData: {
-                          'test_type': 'isolate_error_listener_timer',
-                        },
-                      );
-                    });
-
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content:
-                              Text('Isolate error triggered! Check PostHog.'),
-                          backgroundColor: Colors.purple,
-                          duration: Duration(seconds: 3),
-                        ),
-                      );
-                    }
-                  },
-                  child: const Text("Test Isolate Error Handler"),
-                ),
-                const Divider(),
-                const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text(
-                    "Feature flags",
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    final result = await _posthogFlutterPlugin
-                        .getFeatureFlag("feature_name");
-                    setState(() {
-                      _result = result;
-                    });
-                  },
-                  child: const Text("Get Feature Flag status"),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    final result = await _posthogFlutterPlugin
-                        .isFeatureEnabled("feature_name");
-                    setState(() {
-                      _result = result;
-                    });
-                  },
-                  child: const Text("isFeatureEnabled"),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    final result = await _posthogFlutterPlugin
-                        .getFeatureFlagPayload("feature_name");
-                    setState(() {
-                      _result = result;
-                    });
-                  },
-                  child: const Text("getFeatureFlagPayload"),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    await _posthogFlutterPlugin.reloadFeatureFlags();
-                  },
-                  child: const PostHogMaskWidget(
-                      child: Text("reloadFeatureFlags")),
-                ),
-                const Divider(),
-                const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text(
-                    "Data result",
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Text(_result.toString()),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
+            const SizedBox(height: 16),
 
-class SecondRoute extends StatefulWidget {
-  const SecondRoute({super.key});
-
-  @override
-  SecondRouteState createState() => SecondRouteState();
-}
-
-class SecondRouteState extends State<SecondRoute> with WidgetsBindingObserver {
-  @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const PostHogMaskWidget(child: Text('First Route')),
-      ),
-      body: Center(
-        child: RepaintBoundary(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ElevatedButton(
-                child: const PostHogMaskWidget(child: Text('Open route')),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ThirdRoute(),
-                      settings: const RouteSettings(name: 'third_route'),
-                    ),
-                  ).then((_) {});
-                },
+            // Utility section
+            const Text(
+              'Utilities',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
-              const SizedBox(height: 20),
-              const TextField(
-                decoration: InputDecoration(
-                  labelText: 'Sensitive Text Input',
-                  hintText: 'Enter sensitive data',
-                  border: OutlineInputBorder(),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ElevatedButton(
+                  onPressed: _testFlush,
+                  child: const Text('Flush Events'),
                 ),
-                obscureText: true,
-              ),
-              const SizedBox(height: 20),
-              PostHogMaskWidget(
-                  child: Image.asset(
-                'assets/training_posthog.png',
-                height: 200,
-              )),
-              const SizedBox(height: 20),
-            ],
-          ),
+                ElevatedButton(
+                  onPressed: () async {
+                    try {
+                      await _posthog.register('super_property', 'super_value');
+                      setState(() {
+                        _statusMessage = 'Super property registered!';
+                      });
+                    } catch (e) {
+                      setState(() {
+                        _statusMessage = 'Error: $e';
+                      });
+                    }
+                  },
+                  child: const Text('Register Super Property'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    try {
+                      await _posthog.reset();
+                      await _loadDistinctId();
+                      setState(() {
+                        _statusMessage = 'Reset completed!';
+                      });
+                    } catch (e) {
+                      setState(() {
+                        _statusMessage = 'Error: $e';
+                      });
+                    }
+                  },
+                  child: const Text('Reset'),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
-  }
-}
-
-class ThirdRoute extends StatelessWidget {
-  const ThirdRoute({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Third Route'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: GridView.builder(
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
-            crossAxisSpacing: 10.0,
-            mainAxisSpacing: 10.0,
-          ),
-          itemCount: 16,
-          itemBuilder: (context, index) {
-            return Image.asset(
-              'assets/posthog_logo.png',
-              fit: BoxFit.cover,
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-/// Custom exception class for demonstration purposes
-class CustomException implements Exception {
-  final String message;
-  final String? code;
-  final Map<String, dynamic>? additionalData;
-
-  const CustomException(
-    this.message, {
-    this.code,
-    this.additionalData,
-  });
-
-  @override
-  String toString() {
-    if (code != null) {
-      return 'CustomException($code): $message $additionalData';
-    }
-    return 'CustomException: $message $additionalData';
   }
 }

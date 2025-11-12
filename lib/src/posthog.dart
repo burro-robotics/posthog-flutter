@@ -1,6 +1,7 @@
 import 'package:meta/meta.dart';
 
 import 'package:posthog_flutter/src/error_tracking/posthog_error_tracking_autocapture_integration.dart';
+import 'package:posthog_flutter/src/util/logging.dart';
 import 'posthog_config.dart';
 import 'posthog_flutter_platform_interface.dart';
 import 'posthog_observer.dart';
@@ -25,6 +26,9 @@ class Posthog {
   /// com.posthog.posthog.AUTO_INIT: false
   Future<void> setup(PostHogConfig config) {
     _config = config; // Store the config
+
+    // Initialize logger with debug setting
+    updateLoggerLevel();
 
     _installFlutterIntegrations(config);
 
@@ -116,7 +120,14 @@ class Posthog {
 
   Future<bool> isOptOut() => _posthog.isOptOut();
 
-  Future<void> debug(bool enabled) => _posthog.debug(enabled);
+  Future<void> debug(bool enabled) {
+    // Update logger level when debug is toggled
+    if (_config != null) {
+      _config!.debug = enabled;
+      updateLoggerLevel();
+    }
+    return _posthog.debug(enabled);
+  }
 
   Future<void> register(String key, Object value) =>
       _posthog.register(key, value);
@@ -173,6 +184,11 @@ class Posthog {
   }
 
   Future<String?> getSessionId() => _posthog.getSessionId();
+
+  /// Creates a new session ID and sends a session initialization event.
+  /// Useful for kiosk mode applications where you want to start a new session
+  /// after a long idle period.
+  Future<void> createNewSession() => _posthog.createNewSession();
 
   Posthog._internal();
 }

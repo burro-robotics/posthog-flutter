@@ -41,6 +41,18 @@ class PostHogConfig {
   /// Defaults to true.
   var surveys = true;
 
+  /// Enable Autocapture
+  ///
+  /// **Notes:**
+  /// - Autocapture captures click/tap events with element position and metadata.
+  /// - Requires wrapping your app with `PostHogWidget` or `PostHogAutocaptureWidget`.
+  /// - Autocapture data is sent as `$autocapture` events with `$elements` array.
+  /// - This is separate from PostHog's visual heatmap feature (which requires web/iframe).
+  /// - For Flutter web, this setting will be ignored. Autocapture on web uses the JavaScript Web SDK instead.
+  ///
+  /// Defaults to false.
+  var autocapture = false;
+
   /// Configuration for error tracking and exception capture
   final errorTrackingConfig = PostHogErrorTrackingConfig();
 
@@ -65,6 +77,7 @@ class PostHogConfig {
       'surveys': surveys,
       'personProfiles': personProfiles.name,
       'sessionReplay': sessionReplay,
+      'autocapture': autocapture,
       'dataMode': dataMode.name,
       'sessionReplayConfig': sessionReplayConfig.toMap(),
       'errorTrackingConfig': errorTrackingConfig.toMap(),
@@ -98,11 +111,58 @@ class PostHogSessionReplayConfig {
   /// Defaults to 1s.
   var throttleDelay = const Duration(seconds: 1);
 
+  /// JPEG compression quality for session replay screenshots (0-100).
+  /// Lower values = smaller file size but lower image quality.
+  /// For low bandwidth IoT devices, consider values between 40-70.
+  /// Defaults to 75.
+  var compressionQuality = 40;
+
+  /// Maximum number of snapshots to buffer before sending a batch.
+  /// Larger batches = fewer network requests but more memory usage.
+  /// Defaults to 10.
+  var batchSize = 10;
+
+  /// Maximum time to wait before sending a batch, even if batchSize is not reached.
+  /// This ensures snapshots are sent even during low activity periods.
+  /// Defaults to 5 seconds.
+  var batchInterval = const Duration(seconds: 5);
+
+  /// Maximum width/height to resize screenshots to before compression.
+  /// Set to 0 to disable resizing. Useful for very low bandwidth scenarios.
+  /// Defaults to 0 (no resizing).
+  var maxImageDimension = 0;
+
+  /// Enable pausing session replay recording after a period of user inactivity.
+  /// When enabled, recording will pause after [idleTimeout] and resume on any user interaction.
+  /// This is useful for apps with idle animations or background updates that shouldn't be recorded.
+  /// Defaults to false (recording continues regardless of user interaction).
+  var pauseOnIdle = false;
+
+  /// Duration of inactivity before pausing session replay recording.
+  /// Only used when [pauseOnIdle] is true.
+  /// Defaults to 5 seconds.
+  var idleTimeout = const Duration(seconds: 5);
+
+  /// Duration of inactivity before creating a new session on next interaction.
+  /// If idle period exceeds this duration, a new session will be created when user interacts again.
+  /// This is useful for kiosk mode applications where users interact, robot moves, then interact again later.
+  /// Must be longer than [idleTimeout] to take effect.
+  /// Only used when [pauseOnIdle] is true.
+  /// Defaults to 5 minutes (300 seconds).
+  var sessionTimeout = const Duration(minutes: 5);
+
   Map<String, dynamic> toMap() {
     return {
       'maskAllImages': maskAllImages,
       'maskAllTexts': maskAllTexts,
       'throttleDelayMs': throttleDelay.inMilliseconds,
+      'compressionQuality': compressionQuality,
+      'batchSize': batchSize,
+      'batchIntervalMs': batchInterval.inMilliseconds,
+      'maxImageDimension': maxImageDimension,
+      'pauseOnIdle': pauseOnIdle,
+      'idleTimeoutMs': idleTimeout.inMilliseconds,
+      'sessionTimeoutMs': sessionTimeout.inMilliseconds,
     };
   }
 }

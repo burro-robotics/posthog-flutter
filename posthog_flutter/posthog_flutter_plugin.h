@@ -1,0 +1,1 @@
+../linux/posthog_flutter_plugin.h

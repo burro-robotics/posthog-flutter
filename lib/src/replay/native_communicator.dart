@@ -5,13 +5,15 @@ class NativeCommunicator {
   static const MethodChannel _channel = MethodChannel('posthog_flutter');
 
   Future<void> sendFullSnapshot(Uint8List imageBytes,
-      {required int id, required int x, required int y}) async {
+      {required int id, required int x, required int y, required int width, required int height}) async {
     try {
       await _channel.invokeMethod('sendFullSnapshot', {
         'imageBytes': imageBytes,
         'id': id,
         'x': x,
         'y': y,
+        'width': width,
+        'height': height,
       });
     } catch (e) {
       printIfDebug('Error sending full snapshot to native: $e');

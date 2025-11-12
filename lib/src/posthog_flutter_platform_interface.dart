@@ -144,5 +144,12 @@ abstract class PosthogFlutterPlatformInterface extends PlatformInterface {
     throw UnimplementedError('getSessionId() not implemented');
   }
 
+  /// Creates a new session ID and sends a session initialization event.
+  /// Useful for kiosk mode applications where you want to start a new session
+  /// after a long idle period.
+  Future<void> createNewSession() {
+    throw UnimplementedError('createNewSession() not implemented');
+  }
+
   // TODO: missing capture with more parameters
 }
